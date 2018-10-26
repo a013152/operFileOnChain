@@ -6,8 +6,8 @@
 #include "commonFun.h" 
 #include "operFile.h"
  
-
-int main(int argc,char *argv[])
+ 
+int test()
 {
 	// char *sourcedata = "123456";
     // int t1 = strlen(sourcedata), t2 = 0;
@@ -21,12 +21,14 @@ int main(int argc,char *argv[])
 	// return 0;
 	// saveHashToMysql(1, "0x1626b2c99eedb59c8199ae5d40c6a6a0fa67ea6a5abcd9dbe382054b550e2267", "01.jpg");
 	// return 0;
-	
-	
+}	
+
+int save()
+{
 	//----------保存-----------------------------------------------
 	//1、 读取本地文件模拟socket接收到要存储的数据。
 	char szFile[] = "01.jpg", preHex[67] = {0} , szAccount[]="0xf58c93ceaeffbb91f45c83022ade9cfe5ef19339"; 
-	int lenghtUnit = 2048 ;//单位长度
+	int lenghtUnit = 20480 ;//单位长度
 	int tempMultLen = lenghtUnit * 2; 
 	FILE * pf = NULL; char* readbuf = NULL ,* writebuf = NULL , * buffTemp = NULL ;
 	if ((pf = fopen(szFile, "rb")) == NULL)
@@ -38,14 +40,15 @@ int main(int argc,char *argv[])
 	long flen = ftell(pf);	//计算文件的长度
 	
 	printf("File:%s .size:%ld \n", szFile, flen);
+	//2、 以每4K大小从后向前读取，转化为4Kbase64十六进制后， 拼接上条交易hex保存到区块链，
 	if(flen >= lenghtUnit)
 	{
 		readbuf = malloc(lenghtUnit +1);  //只申请单位长度内存 
-		writebuf = malloc(tempMultLen + 67); buffTemp = malloc(tempMultLen);
+		writebuf = malloc(tempMultLen + 65); buffTemp = malloc(tempMultLen);
 		long iReadLen =0, iCurenPos = flen, count_= 1, moveReverseLen = 0; 
 		memset(preHex, '0', 66); 
 		while(iCurenPos > 0){			
-			memset(readbuf, 0 ,lenghtUnit+1);	memset(writebuf, 0 ,tempMultLen + 67); memset(buffTemp, 0 ,tempMultLen); 
+			memset(readbuf, 0 ,lenghtUnit+1);	memset(writebuf, 0 ,tempMultLen + 65); memset(buffTemp, 0 ,tempMultLen); 
 			iReadLen = 0;
 			if((iCurenPos - lenghtUnit) >=0 ){  //是否满足 读单位长度  
 				iReadLen = lenghtUnit;
@@ -60,6 +63,10 @@ int main(int argc,char *argv[])
 			printf("times %ld | have read %ld bytes ,current ftell:%ld\n",count_++ ,  iReadLen, iCurenPos); 
 			  
 			BytesToHexStr(readbuf, buffTemp, iReadLen);//转换为十六进制
+			
+			/*注意data 拼接格式 preHex+dataPlayload(状态+上一条42位交易hex + 数据负载）
+			preHex： 上一条交易hex （64字节）
+			dataPlayload： 数据负载 （<= 4096字节）*/
 			memcpy(writebuf, (void*)&preHex[2], 64);
 			memcpy(writebuf + 64, buffTemp, iReadLen * 2);
 			//printf("writebuf lenght:%lu, %s\n", strlen(writebuf), writebuf);
@@ -71,47 +78,46 @@ int main(int argc,char *argv[])
 	}else{		
 		readbuf = malloc(flen + 1);
 		tempMultLen = flen *2; 
-		writebuf = malloc(tempMultLen + 65); buffTemp = malloc(tempMultLen);
+		writebuf = malloc(tempMultLen + 65); buffTemp = malloc(tempMultLen); memset(writebuf, 0 ,tempMultLen + 65);
 		fseek(pf, 0l, SEEK_SET); //移动到文件头
 		fread(readbuf, flen, 1, pf); //读取全部内容
 		BytesToHexStr(readbuf, buffTemp, flen);//转换为十六进制
-			
-		memcpy(writebuf, preHex, 64);
+		printf("times 1 | have read %ld bytes ,current ftell:%ld\n", flen, ftell(pf)); 	
+		memcpy(writebuf,(void*)&preHex[2], 64);
 		memcpy(writebuf + 64, buffTemp, tempMultLen);
+		printf("writebuf lenght:%lu, %s\n", strlen(writebuf), writebuf);
 		saveDataOnChain(szAccount, writebuf, preHex);   //存到区块链
 		printf("preHex:%s\n",preHex);
 	}
-	//保存交易hex到mysql 
+	//3、  保存最后一条交易hex， 到mysql数据库 
 	saveHashToMysql(1, preHex, szFile);
 	
-	//清理	
+	//4、 清理	
 	if(readbuf)		free(readbuf);
 	if(writebuf)	free(writebuf);
-	if(buffTemp)	free(buffTemp); 
-	 
+	if(buffTemp)	free(buffTemp); 	 
 	fclose(pf);
 	
-	
-	//2、 以每4K大小从后向前读取，转化为4Kbase64十六进制后， 拼接上条交易hex保存到区块链，
-		/*注意data 拼接格式 preHex+dataPlayload(状态+上一条42位交易hex + 数据负载）
-		preHex： 上一条交易hex （42字节）+ 0补齐64位
-		dataPlayload： 数据负载 （<= 4096字节）*/
-	
-	// 3、 判断最后一条交易hex，需要保存到mysql数据库
-	
-	
-	
-	
-	
+	return 0;
+}
+
+void read()
+{
 	//------------读取---------------------------------------------
 	//1、从数据库中读取唯一id 对应的文件名和交易hex
 	
 	//2、查询区块链，获取input数据，根据 type+preHex+dataPlayload 格式解析，如果上一条交易hex存在则循环查找
 	
 	//3、按顺序拼接数据后
+}
+
+int main(int argc,char *argv[])
+{
+	//test(); 
 	
+	save();
 	
-	
+	//read();   
 	
 	return 0;
 }
