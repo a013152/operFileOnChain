@@ -40,13 +40,14 @@ int save()
 	long flen = ftell(pf);	//计算文件的长度
 	
 	printf("File:%s .size:%ld \n", szFile, flen);
+	memset(preHex, '0', 66); 
 	//2、 以每4K大小从后向前读取，转化为4Kbase64十六进制后， 拼接上条交易hex保存到区块链，
 	if(flen >= lenghtUnit)
 	{
 		readbuf = malloc(lenghtUnit +1);  //只申请单位长度内存 
 		writebuf = malloc(tempMultLen + 65); buffTemp = malloc(tempMultLen);
 		long iReadLen =0, iCurenPos = flen, count_= 1, moveReverseLen = 0; 
-		memset(preHex, '0', 66); 
+		
 		while(iCurenPos > 0){			
 			memset(readbuf, 0 ,lenghtUnit+1);	memset(writebuf, 0 ,tempMultLen + 65); memset(buffTemp, 0 ,tempMultLen); 
 			iReadLen = 0;
@@ -83,9 +84,9 @@ int save()
 		fread(readbuf, flen, 1, pf); //读取全部内容
 		BytesToHexStr(readbuf, buffTemp, flen);//转换为十六进制
 		printf("times 1 | have read %ld bytes ,current ftell:%ld\n", flen, ftell(pf)); 	
-		memcpy(writebuf,(void*)&preHex[2], 64);
+		memcpy(writebuf,(void*)&preHex[2], 64); 
 		memcpy(writebuf + 64, buffTemp, tempMultLen);
-		printf("writebuf lenght:%lu, %s\n", strlen(writebuf), writebuf);
+		//printf("writebuf lenght:%lu, %s\n", strlen(writebuf), writebuf);
 		saveDataOnChain(szAccount, writebuf, preHex);   //存到区块链
 		printf("preHex:%s\n",preHex);
 	}
