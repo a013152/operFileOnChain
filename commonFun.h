@@ -7,7 +7,8 @@
 #include <ctype.h>
 
 
-#define  BUFSIZE	21504
+#define  BUFSIZE	21504 
+#define  UNITSIZE   10240
 
 #define CURL_IP_PORT  "127.0.0.1:8101"
 #define  DB_HOST		"172.16.0.206"  
