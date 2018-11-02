@@ -9,7 +9,7 @@
 #include "/usr/include/mysql/mysql.h"
 #pragma comment(lib, "libmysql.lib")
 
-#define FORIGNKEY  8
+#define FORIGNKEY  2
 #define READFILENAME "01.zip"
 #define WRITEFILENAME "02.zip"
  
@@ -46,7 +46,8 @@ int FUN1()
 	long flen = ftell(pf);	//计算文件的长度
 	
 	printf("File:%s .size:%ld \n", szFile, flen);
-	memset(preHex, '0', 66); 
+	preHex[0]='0';preHex[1]='x';
+	memset(&preHex[2], '0', 64); 
 	//2、 以每10K大小从后向前读取，转化为20K十六进制后， 拼接上条交易hex保存到区块链，
 	if(flen >= lenghtUnit)
 	{
@@ -67,7 +68,7 @@ int FUN1()
 			moveReverseLen += (0 - iReadLen); 	 //计算移动长度 （是个负数）
 			fseek(pf, moveReverseLen, SEEK_END); //从文件末尾向前移动		
 			fread(readbuf, iReadLen, 1, pf); 	 //读取1次长度的内容, 注意当前的位置 
-			iCurenPos += moveReverseLen;	     //记录当前位置 （越来越小，等于0时退出循环）
+			iCurenPos += (0 - iReadLen);	     //记录当前位置 （越来越小，等于0时退出循环）
 			printf("times %ld | have read %ld bytes ,current ftell:%ld\n",count_++ ,  iReadLen, iCurenPos); 
 			  
 			BytesToHexStr(readbuf, buffTemp, iReadLen);//转换为十六进制
@@ -75,13 +76,15 @@ int FUN1()
 			/*注意data 拼接格式 preHex+dataPlayload(状态+上一条交易Hash + 数据负载）
 			preHex： 上一条交易hex （64字节）
 			dataPlayload： 数据负载 （<= 单位长度字节）*/
-			memcpy(writebuf, (void*)&preHex[2], 64);
-			memcpy(writebuf + 64, buffTemp, iReadLen * 2);
+			memcpy(writebuf, preHex, 66);
+			memcpy(writebuf + 66, buffTemp, iReadLen * 2);
 			//printf("writebuf lenght:%lu, %s\n", strlen(writebuf), writebuf);
 			saveDataOnChain(szAccount, writebuf, preHex); 
 			preHex[66] =0;
 			 		
 			printf("preHex:%s\n",preHex); 
+			
+			//break;
 		}
 	}
 	else
@@ -93,14 +96,17 @@ int FUN1()
 		fread(readbuf, flen, 1, pf); //读取全部内容
 		BytesToHexStr(readbuf, buffTemp, flen);//转换为十六进制
 		printf("times 1 | have read %ld bytes ,current ftell:%ld\n", flen, ftell(pf)); 	
-		memcpy(writebuf,(void*)&preHex[2], 64); 
-		memcpy(writebuf + 64, buffTemp, tempMultLen);
+		memcpy(writebuf,preHex, 66); 
+		memcpy(writebuf + 66, buffTemp, tempMultLen);
 		//printf("writebuf lenght:%lu, %s\n", strlen(writebuf), writebuf);
 		saveDataOnChain(szAccount, writebuf, preHex);   //存到区块链
 		printf("preHex:%s\n",preHex);
 	}
 	//3、  保存最后一条交易hex， 到mysql数据库 
-	saveHashToMysql(FORIGNKEY, preHex, szFile);
+	if(saveHashToMysql(FORIGNKEY, preHex, szFile) == 0)
+	{
+		printf("Mysql save file \"%s\",Hash: \"%s\"\n",szFile, preHex);
+	}
 	
 	//4、 清理	
 	if(readbuf)		free(readbuf);
@@ -163,7 +169,7 @@ void FUN2()
 		nextFlag = (strcmp(szHash , "0x0000000000000000000000000000000000000000000000000000000000000000") != 0);
 		printf("nextFlag:%d  szHash:%s\n",nextFlag, szHash);
 	}while(nextFlag);
-	
+	printf("get file %s finish! \n",fileName);
 	 
 	fclose(pf); 
 	free(fileData); 
@@ -171,13 +177,30 @@ void FUN2()
 } 
 
 int main(int argc,char *argv[])
-{
-	 
+{ 
 	//test(); 
-	
-	//FUN1();  //存到区块链
-	
-	FUN2();   //从区块链上读取
+	int input_ = 0;
+	while(1)
+	{
+		printf("input command please! (1 save, 2 read, 0 exit)\n");
+		scanf("%d",&input_);
+		if(input_ == 0)
+		{
+			break;			
+		}
+		else if(input_ == 1)
+		{
+			FUN1();  //存到区块链
+		}
+		else if(input_ ==2)
+		{
+			FUN2();   //从区块链上读取
+		}
+		else 
+		{
+			printf("unknown command. \n");
+		}
+	}
 	
 	return 0;
 }

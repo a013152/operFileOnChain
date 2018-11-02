@@ -41,7 +41,7 @@ int saveDataOnChain(char* account, char* dataBuf, char* outTXHash)
 		//设置发送数据   
 		int flen = strlen(dataBuf);
 		if(flen < BUFSIZE - 250){		
-			sprintf(sendData, "{\"method\":\"eth_sendTransaction\",\"params\":[{\"from\":\"%s\",\"gas\":\"0xfffff\",\"data\":\"0x%s\"}],\"id\":1,\"jsonrpc\":\"2.0\"}",account,dataBuf);
+			sprintf(sendData, "{\"method\":\"eth_sendTransaction\",\"params\":[{\"from\":\"%s\",\"gas\":\"0xfffff\",\"data\":\"%s\"}],\"id\":1,\"jsonrpc\":\"2.0\"}",account,dataBuf);
 			//printf("sendData:%s\n", sendData); 
 		} else{
 			result_ =  -1;
@@ -193,16 +193,20 @@ int readDataFromChain(char * hash, char* data)
 					}
 					else {
 						printf("BUFSIZE:%d < lenght_%d\n", BUFSIZE,lenght_);
+						return -1;
 					}
 				}else {
 					printf("input type is not string \n");
+					return -1;
 				}
 			}else{
 				printf("input is null\n");
+				return -1;
 			}
 			
 		}else{
 			printf("result is null\n");
+			return -1;
 		}
 	}
 	else{
@@ -214,38 +218,40 @@ int readDataFromChain(char * hash, char* data)
 
 
 
-int saveHashToMysql(int forignkey, char* hash, char * fileName)
+int saveHashToMysql(int forignkey, char* fileHash, char * fileName)
 {
 	MYSQL conn ,*sock;
 	time_t timeout1 = CONN_TIMEOUT, timeout2 = RECO_TIMEOUT;
 	mysql_init(&conn);
-	if (mysql_options(&conn, MYSQL_OPT_CONNECT_TIMEOUT, &timeout1)){
-		perror(mysql_error(&conn));  return -1;  //mysql_error(&conn)
-	}
-	if (mysql_options(&conn, MYSQL_OPT_RECONNECT, &timeout2)){
-		perror(mysql_error(&conn));  return -1;  //mysql_error(&conn)
-	}
-	 if((sock = mysql_real_connect(&conn, DB_HOST, DB_USER, DB_PSW, DB_NAME, DB_PORT, NULL, 0)) == NULL){
-		 perror("read_database_handler()");  return -1;
-	 }
- 
-	if(mysql_set_character_set(&conn,"utf8")){
-		perror(mysql_error(&conn));  return -1;
-	}
+	do
+	{
+		if (mysql_options(&conn, MYSQL_OPT_CONNECT_TIMEOUT, &timeout1)){
+			perror(mysql_error(&conn));  return -1;break;  //mysql_error(&conn)
+		}
+		if (mysql_options(&conn, MYSQL_OPT_RECONNECT, &timeout2)){
+			perror(mysql_error(&conn)); return -1; break;  //mysql_error(&conn)
+		}
+		 if((sock = mysql_real_connect(&conn, DB_HOST, DB_USER, DB_PSW, DB_NAME, DB_PORT, NULL, 0)) == NULL){
+			 perror("read_database_handler()"); return -1; break;
+		 }
+	 
+		if(mysql_set_character_set(&conn,"utf8")){
+			perror(mysql_error(&conn)); return -1; break;
+		}
 
-	char queryString[BUFSIZE];
-	sprintf(queryString, "INSERT INTO file_hash (foreign_key, chain_hash, filename, remark) VALUES(%d,\'%s\',\'%s\',\'测试备注\')",forignkey, hash, fileName);
-	
-	//printf("queryString:%s\n",queryString);
-	
-	if(mysql_query(&conn, queryString)){
-		perror(mysql_error(&conn));
-		return -1;
-	}
-	
+		char queryString[BUFSIZE];
+		sprintf(queryString, "INSERT INTO file_hash (foreign_key, data_chain_hash, annex_chain_hash, filename, remark) VALUES(%d,\'%s\',\'%s\',\'%s\',\'测试备注\')",forignkey, fileHash,fileHash, fileName);
+		
+		//printf("queryString:%s\n",queryString);
+		
+		if(mysql_query(&conn, queryString)){
+			perror(mysql_error(&conn));return -1;
+			break;
+		} 
+	}  while(0);
 	mysql_close(&conn);
 	mysql_close(sock); //关闭连接 
-	printf("Mysql save hash: %s\n", hash);
+	
 	return 0;
 }
 
@@ -286,7 +292,7 @@ int readHashFromMysql(int forignkey, char* outHash)
 			
 			if ( mysql_query(&mysql, szSql) != 0 ) //如果连接成功，则开始查询 .成功返回0
 			{ 
-				printf("fail to query!\n");res = -1; mysql_close(&mysql);	break; 
+				printf("fail to query!\n");res = -1;	break; 
 			} 
 			
 			if ( (result = mysql_store_result(&mysql)) == NULL ) //保存查询的结果 
@@ -297,7 +303,7 @@ int readHashFromMysql(int forignkey, char* outHash)
 			{ 
 				while ( (row = mysql_fetch_row(result)) != NULL ) //读取结果集中的数据，返回的是下一行。 】 
 				{   
-					memcpy(outHash, row[2], 66); 
+					memcpy(outHash, row[3], 66);  // row[2] datahash   ,row[3] 文件hash
 				} 
 			} 
 		 } 
